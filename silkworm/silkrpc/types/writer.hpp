@@ -29,7 +29,7 @@ class Writer {
   public:
     virtual ~Writer() = default;
 
-    virtual void write(const std::string& content) = 0;
+    virtual void write(std::string_view content) = 0;
     virtual void close() {}
 };
 
@@ -41,7 +41,7 @@ class StringWriter : public Writer {
         content_.reserve(initial_capacity);
     }
 
-    void write(const std::string& content) override {
+    void write(std::string_view content) override {
         content_.append(content);
     }
 
@@ -57,7 +57,7 @@ class SocketWriter : public Writer {
   public:
     explicit SocketWriter(boost::asio::ip::tcp::socket& socket) : socket_(socket) {}
 
-    void write(const std::string& content) override {
+    void write(std::string_view content) override {
         boost::asio::write(socket_, boost::asio::buffer(content));
     }
 
@@ -69,7 +69,7 @@ class ChunksWriter : public Writer {
   public:
     explicit ChunksWriter(Writer& writer, std::size_t chunk_size = kDefaultChunkSize);
 
-    void write(const std::string& content) override;
+    void write(std::string_view content) override;
     void close() override;
 
   private:

@@ -250,28 +250,117 @@ void AccountTracer::on_execution_end(const evmc_result& /*result*/, const silkwo
     code = intra_block_state.get_code(address_);
 }
 
-void DebugTracer::write_log(const DebugLog& log) {
-    nlohmann::json json;
+inline constexpr auto opSize = 10;
+inline constexpr auto emptyObjectSize = 2;
+inline constexpr auto stackSize = 66;
+inline constexpr auto memorySize = 64;
+inline constexpr auto storageSize = 64;
 
-    json["depth"] = log.depth;
-    json["gas"] = log.gas;
-    json["gasCost"] = log.gas_cost;
-    json["op"] = log.op;
-    json["pc"] = log.pc;
+// struct GlazeJsonStackItem {
+//     char entry[opSize];
+//     struct glaze {
+//         using T = GlazeJsonStackItem;
+//         static constexpr auto value = glz::array(
+//             "address", &T::address);
+//     };
+// };
+
+// struct GlazeJsonMemoryItem {
+
+// };
+
+// struct GlazeJsonStorageItem {
+
+// };
+
+// struct GlazeJsonDebugLogItem {
+//     uint32_t pc;
+//     char op[opSize];
+//     int64_t gas;
+//     int64_t gas_cost;
+//     int32_t depth;
+//     std::optional<std::vector<GlazeJsonStackItem>> stack;
+//     std::optional<std::vector<std::GlazeJsonMemoryItem>> memory;
+//     std::optional<std::vector<std::GlazeJsonStorageItem>> storage;
+//     std::optional<std::string> error;
+
+
+//     struct glaze {
+//         using T = GlazeJsonDebugLogItem;
+//         static constexpr auto value = glz::object(
+//             "pc", &T::pc,
+//             "op", &T::op,
+//             "gas", &T::gas,
+//             "gasCost", &T::gasCost,
+//             "depth", &T::depth,
+//             "stack", &T::stack,
+//             "memory", &T::memory,
+//             "storage", &T::storage,
+//             "error", &T::error);
+//     };
+// };
+
+// void DebugTracer::write_log(const DebugLog& log) {
+//     nlohmann::json json;
+
+//     json["depth"] = log.depth;
+//     json["gas"] = log.gas;
+//     json["gasCost"] = log.gas_cost;
+//     json["op"] = log.op;
+//     json["pc"] = log.pc;
+//     if (!config_.disableStack) {
+//         json["stack"] = log.stack;
+//     }
+//     if (!config_.disableMemory) {
+//         json["memory"] = log.memory;
+//     }
+//     if (!config_.disableStorage && !log.storage.empty()) {
+//         json["storage"] = log.storage;
+//     }
+//     if (log.error) {
+//         json["error"] = nlohmann::json::object();
+//     }
+
+//     stream_.write_json(json);
+// }
+
+void DebugTracer::write_log(const DebugLog& log) {
+    stream_.open_object();
+    stream_.write_field("depth", log.depth);
+    stream_.write_field("gas", log.gas);
+    stream_.write_field("gasCost", log.gas_cost);
+    stream_.write_field("op", log.op);
+    stream_.write_field("pc", log.pc);
+
     if (!config_.disableStack) {
-        json["stack"] = log.stack;
+        stream_.write_field("stack");
+        stream_.open_array();
+        for (const auto& item : log.stack) {
+            stream_.write_entry(item);
+        }
+        stream_.close_array();
     }
     if (!config_.disableMemory) {
-        json["memory"] = log.memory;
+        stream_.write_field("memory");
+        stream_.open_array();
+        for (const auto& item : log.memory) {
+            stream_.write_entry(item);
+        }
+        stream_.close_array();
     }
     if (!config_.disableStorage && !log.storage.empty()) {
-        json["storage"] = log.storage;
+        stream_.write_field("storage");
+        stream_.open_object();
+        for (const auto& entry : log.storage) {
+            stream_.write_field(entry.first, entry.second);
+        }
+        stream_.close_object();
     }
     if (log.error) {
-        json["error"] = nlohmann::json::object();
+        stream_.write_field("error", "{}");
     }
 
-    stream_.write_json(json);
+    stream_.close_object();
 }
 
 Task<void> DebugExecutor::trace_block(json::Stream& stream, const ChainStorage& storage, BlockNum block_number) {
@@ -326,7 +415,7 @@ Task<void> DebugExecutor::trace_transaction(json::Stream& stream, const ChainSto
         std::ostringstream oss;
         oss << "transaction " << silkworm::to_hex(tx_hash, true) << " not found";
         const Error error{-32000, oss.str()};
-        stream.write_field("error", error);
+        stream.write_json_field("error", error);
     } else {
         const auto& block = tx_with_block->block_with_hash.block;
         const auto& transaction = tx_with_block->transaction;
@@ -396,7 +485,7 @@ Task<void> DebugExecutor::execute(json::Stream& stream, const ChainStorage& stor
                     debug_tracer->flush_logs();
                     stream.close_array();
 
-                    stream.write_field("failed", !execution_result.success());
+                    stream.write_json_field("failed", !execution_result.success());
                     if (!execution_result.pre_check_error) {
                         stream.write_field("gas", txn.gas_limit - execution_result.gas_left);
                         stream.write_field("returnValue", silkworm::to_hex(execution_result.data));
@@ -467,7 +556,7 @@ Task<void> DebugExecutor::execute(
 
                 SILK_DEBUG << "debug return: " << execution_result.error_message();
 
-                stream.write_field("failed", !execution_result.success());
+                stream.write_json_field("failed", !execution_result.success());
                 if (!execution_result.pre_check_error) {
                     stream.write_field("gas", transaction.gas_limit - execution_result.gas_left);
                     stream.write_field("returnValue", silkworm::to_hex(execution_result.data));
@@ -561,7 +650,7 @@ Task<void> DebugExecutor::execute(
 
                         SILK_DEBUG << "debug return: " << execution_result.error_message();
 
-                        stream.write_field("failed", !execution_result.success());
+                        stream.write_json_field("failed", !execution_result.success());
                         if (!execution_result.pre_check_error) {
                             stream.write_field("gas", txn.gas_limit - execution_result.gas_left);
                             stream.write_field("returnValue", silkworm::to_hex(execution_result.data));

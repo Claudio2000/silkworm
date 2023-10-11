@@ -56,11 +56,11 @@ std::ostream& operator<<(std::ostream& out, const DebugConfig& tc);
 using Storage = std::map<std::string, std::string>;
 
 struct DebugLog {
-    uint32_t pc;
+    std::uint32_t pc;
     std::string op;
-    int64_t gas;
-    int64_t gas_cost;
-    int32_t depth;
+    std::int64_t gas;
+    std::int64_t gas_cost;
+    std::int32_t depth;
     bool error{false};
     std::vector<std::string> memory;
     std::vector<std::string> stack;

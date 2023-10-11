@@ -17,6 +17,7 @@
 #include "writer.hpp"
 
 #include <algorithm>
+#include <iostream>
 #include <utility>
 
 #include <boost/asio/detached.hpp>
@@ -30,12 +31,12 @@ const std::string kChunkSep{'\r', '\n'};                     // NOLINT(runtime/s
 const std::string kFinalChunk{'0', '\r', '\n', '\r', '\n'};  // NOLINT(runtime/string)
 
 ChunksWriter::ChunksWriter(Writer& writer, std::size_t chunck_size)
-    : writer_(writer), chunk_size_(chunck_size), available_(chunck_size), buffer_{new char[chunk_size_]} {
+    : writer_(writer), chunk_size_(chunck_size), available_(chunk_size_), buffer_{new char[chunk_size_]} {
     std::memset(buffer_.get(), 0, chunk_size_);
 }
 
-void ChunksWriter::write(const std::string& content) {
-    auto c_str = content.c_str();
+void ChunksWriter::write(std::string_view content) {
+    auto c_str = content.data();
     auto size = content.size();
 
     SILK_DEBUG << "ChunksWriter::write available_: " << available_ << " size: " << size;
@@ -75,7 +76,6 @@ void ChunksWriter::flush() {
     if (size > 0) {
         std::stringstream stream;
         stream << std::hex << size << "\r\n";
-
         writer_.write(stream.str());
         std::string str{buffer_.get(), size};
         writer_.write(str);
