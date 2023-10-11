@@ -284,7 +284,6 @@ inline constexpr auto storageSize = 64;
 //     std::optional<std::vector<std::GlazeJsonStorageItem>> storage;
 //     std::optional<std::string> error;
 
-
 //     struct glaze {
 //         using T = GlazeJsonDebugLogItem;
 //         static constexpr auto value = glz::object(
