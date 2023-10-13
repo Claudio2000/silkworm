@@ -65,7 +65,8 @@ static std::string EMPTY_MEMORY(64, '0');
 void output_stack(std::vector<std::string>& vect, const evmone::uint256* stack, uint32_t stack_size) {
     vect.reserve(stack_size);
     for (int i = int(stack_size - 1); i >= 0; --i) {
-        vect.push_back("0x" + intx::to_string(stack[-i], 16));
+        const std::string entry{"0x" + intx::to_string(stack[-i], 16)};
+        vect.push_back(std::move(entry));
     }
 }
 
@@ -76,7 +77,7 @@ void output_memory(std::vector<std::string>& vect, const evmone::Memory& memory)
     const auto data = memory.data();
     for (std::size_t start = 0; start < memory.size(); start += len) {
         const std::string entry{evmc::hex({data + start, len})};
-        vect.push_back(entry);
+        vect.push_back(std::move(entry));
     }
 }
 
