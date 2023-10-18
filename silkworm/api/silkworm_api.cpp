@@ -282,7 +282,7 @@ SILKWORM_EXPORT int silkworm_start_rpcdaemon(SilkwormHandle* handle, MDBX_env* e
         return SILKWORM_INVALID_HANDLE;
     }
     if (handle->rpcdaemon) {
-        return SILKWORM_RPCDAEMON_ALREADY_STARTED;
+        return SILKWORM_SERVICE_ALREADY_STARTED;
     }
 
     struct EnvUnmanaged : public ::mdbx::env {
@@ -323,7 +323,7 @@ SILKWORM_EXPORT int silkworm_stop_rpcdaemon(SilkwormHandle* handle) SILKWORM_NOE
         return SILKWORM_INVALID_HANDLE;
     }
     if (!handle->rpcdaemon) {
-        return SILKWORM_RPCDAEMON_NOT_STARTED;
+        return SILKWORM_OK;
     }
 
     handle->rpcdaemon->stop();
