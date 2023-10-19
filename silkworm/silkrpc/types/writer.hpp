@@ -83,4 +83,21 @@ class ChunksWriter : public Writer {
     std::unique_ptr<char[]> buffer_;
 };
 
+class JsonChunksWriter : public Writer {
+  public:
+    explicit JsonChunksWriter(Writer& writer, std::size_t chunk_size = kDefaultChunkSize);
+
+    void write(std::string_view content) override;
+    void close() override;
+
+  private:
+    static const std::size_t kDefaultChunkSize = 0x800;
+
+    Writer& writer_;
+    bool chunk_open_ = false;
+    const std::size_t chunk_size_;
+    std::stringstream str_chunk_size_;
+    std::size_t written_;
+};
+
 }  // namespace silkworm::rpc

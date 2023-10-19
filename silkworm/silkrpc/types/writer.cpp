@@ -98,4 +98,49 @@ void ChunksWriter::flush() {
     // std::memset(buffer_.get(), 0, chunk_size_);
 }
 
+JsonChunksWriter::JsonChunksWriter(Writer& writer, std::size_t chunck_size)
+    : writer_(writer), chunk_size_(chunck_size), written_(0) {
+    str_chunk_size_ << std::hex << chunk_size_ << kChunkSep;
+}
+
+void JsonChunksWriter::write(std::string_view content) {
+    auto size = content.size();
+
+    SILK_DEBUG << "JsonChunksWriter::write written_: " << written_ << " size: " << size;
+
+    size_t remaining = size;
+    size_t start = 0;
+    while (start < size) {
+        const auto length = std::min(chunk_size_, remaining);
+        std::string_view sub_view(content.data() + start, length);
+
+        if (written_ == 0) {
+            if (chunk_open_) {
+                writer_.write(kChunkSep);
+            }
+            writer_.write(str_chunk_size_.str());
+            chunk_open_ = true;
+        }
+        writer_.write(sub_view);
+        written_ = (written_ + length) % chunk_size_;
+        start += length;
+        remaining -= length;
+    }
+}
+
+void JsonChunksWriter::close() {
+    if (chunk_open_) {
+        if (written_ > 0) {
+            const auto length = chunk_size_ - written_;
+            std::unique_ptr<char[]> buffer{new char[length]};
+            std::memset(buffer.get(), ' ', length);
+            writer_.write(std::string_view(buffer.get(), length));
+        }
+        writer_.write(kChunkSep);
+    }
+
+    writer_.write(kFinalChunk);
+    writer_.close();
+}
+
 }  // namespace silkworm::rpc
