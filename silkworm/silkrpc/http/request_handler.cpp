@@ -189,7 +189,8 @@ Task<void> RequestHandler::handle_request(uint32_t request_id, commands::RpcApiT
 Task<void> RequestHandler::handle_request(commands::RpcApiTable::HandleStream handler, const nlohmann::json& request_json) {
     try {
         SocketWriter socket_writer(socket_);
-        ChunksWriter chunks_writer(socket_writer, 0xFFFF);
+        // ChunksWriter chunks_writer(socket_writer, 0xFFFF);
+        JsonChunksWriter chunks_writer(socket_writer, 0xFFFF);
         json::Stream stream(chunks_writer);
 
         co_await write_headers();

@@ -99,46 +99,70 @@ void ChunksWriter::flush() {
 }
 
 JsonChunksWriter::JsonChunksWriter(Writer& writer, std::size_t chunck_size)
-    : writer_(writer), chunk_size_(chunck_size), written_(0) {
+    : writer_(writer), chunk_size_(chunck_size), room_left_in_chunck_(chunk_size_), written_(0) {
     str_chunk_size_ << std::hex << chunk_size_ << kChunkSep;
 }
 
 void JsonChunksWriter::write(std::string_view content) {
     auto size = content.size();
+    // std::cout << "JsonChunksWriter::write chunk_size_: " << chunk_size_ << ", written_: " << written_ << ", room_left_in_chunck_: " << room_left_in_chunck_ << ", size: " << size << "\n";
+    // std::cout << "JsonChunksWriter::write content: " << content << "\n";
 
     SILK_DEBUG << "JsonChunksWriter::write written_: " << written_ << " size: " << size;
 
-    size_t remaining = size;
+    if (!chunk_open_) {
+        // std::cout << "writing chunk size " << str_chunk_size_.str() << "\n";
+        writer_.write(str_chunk_size_.str());
+        chunk_open_ = true;
+    }
+
+    size_t remaining_in_view = size;
     size_t start = 0;
     while (start < size) {
-        const auto length = std::min(chunk_size_, remaining);
+        const auto length = std::min(room_left_in_chunck_, remaining_in_view);
         std::string_view sub_view(content.data() + start, length);
-
-        if (written_ == 0) {
-            if (chunk_open_) {
-                writer_.write(kChunkSep);
-            }
-            writer_.write(str_chunk_size_.str());
-            chunk_open_ = true;
-        }
+        // std::cout << "Built sub view (len " << length << "): " << sub_view << "\n";
+        // std::cout << "room_left_in_chunck_: " << room_left_in_chunck_ << ", remaining_in_view: " << remaining_in_view << "\n";
         writer_.write(sub_view);
-        written_ = (written_ + length) % chunk_size_;
+
+        written_ += length;
         start += length;
-        remaining -= length;
+        remaining_in_view -= length;
+        room_left_in_chunck_ -= length;
+
+        // std::cout << "start: " << start << ", remaining_in_view: " << remaining_in_view << ", written_ : " << written_ << "\n";
+
+        if ((room_left_in_chunck_ % chunk_size_) == 0) {
+            if (chunk_open_) {
+                // std::cout << "closing chunk, remaining_in_view: " << remaining_in_view << ", written_ : " << written_ << "\n";
+                writer_.write(kChunkSep);
+                room_left_in_chunck_ = chunk_size_;
+                chunk_open_ = false;
+            }
+            if (remaining_in_view > 0) {
+                // std::cout << "writing chunk size " << str_chunk_size_.str() << "\n";
+                writer_.write(str_chunk_size_.str());
+                chunk_open_ = true;
+            }
+        }
     }
 }
 
 void JsonChunksWriter::close() {
     if (chunk_open_) {
-        if (written_ > 0) {
-            const auto length = chunk_size_ - written_;
-            std::unique_ptr<char[]> buffer{new char[length]};
-            std::memset(buffer.get(), ' ', length);
-            writer_.write(std::string_view(buffer.get(), length));
+        if (room_left_in_chunck_ > 0) {
+            // std::cout << "Padding chunck: written_: " << written_ << ", padding len: " << room_left_in_chunck_ << "\n";
+
+            std::unique_ptr<char[]> buffer{new char[room_left_in_chunck_]};
+            std::memset(buffer.get(), ' ', room_left_in_chunck_);
+            writer_.write(std::string_view(buffer.get(), room_left_in_chunck_));
         }
         writer_.write(kChunkSep);
+        chunk_open_ = false;
+        room_left_in_chunck_ = chunk_size_;
     }
 
+    // std::cout << "Closing writer\n\n";
     writer_.write(kFinalChunk);
     writer_.close();
 }

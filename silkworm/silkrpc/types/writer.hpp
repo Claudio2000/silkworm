@@ -96,8 +96,9 @@ class JsonChunksWriter : public Writer {
     Writer& writer_;
     bool chunk_open_ = false;
     const std::size_t chunk_size_;
-    std::stringstream str_chunk_size_;
+    size_t room_left_in_chunck_;
     std::size_t written_;
+    std::stringstream str_chunk_size_;
 };
 
 }  // namespace silkworm::rpc
